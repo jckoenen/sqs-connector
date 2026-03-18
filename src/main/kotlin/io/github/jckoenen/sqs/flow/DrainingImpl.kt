@@ -2,7 +2,6 @@ package io.github.jckoenen.sqs.flow
 
 import arrow.atomic.Atomic
 import kotlin.coroutines.CoroutineContext
-import kotlin.experimental.ExperimentalTypeInference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -30,8 +29,6 @@ internal fun <T> Flow<T>.drainableImpl(): DrainableFlow<T> =
         }
         .let(::DrainableFlowImpl)
 
-@OptIn(ExperimentalTypeInference::class)
-@BuilderInference
 internal fun <T> drainableImpl(f: suspend FlowCollector<T>.() -> Unit) = flow(f).drainableImpl()
 
 @JvmInline

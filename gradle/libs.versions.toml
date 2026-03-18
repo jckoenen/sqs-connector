@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.3.10"
+kotlin = "2.3.20"
 versions = "0.53.0"
 spotless = "8.3.0"
 maven-publish = "0.36.0"
@@ -14,7 +14,7 @@ arrow = "2.2.2"
 slf4j = "2.0.17"
 logback = "1.5.32"
 
-kotest = "6.1.4"
+kotest = "6.1.7"
 testcontainers = "2.0.3"
 
 [plugins]
