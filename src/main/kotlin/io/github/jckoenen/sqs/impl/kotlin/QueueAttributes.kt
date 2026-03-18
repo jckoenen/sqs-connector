@@ -20,7 +20,7 @@ internal suspend fun SqsClient.getDlq(url: Queue.Url) = either {
         execute(unknownFailure(GET_ATTRIBUTES_OP, url)) {
                 getQueueAttributes {
                     queueUrl = url.value
-                    attributeNames = listOf(QueueAttributeName.RedrivePolicy, QueueAttributeName.FifoQueue)
+                    attributeNames = listOf(QueueAttributeName.RedrivePolicy)
                 }
             }
             .bind()
