@@ -88,6 +88,20 @@ public interface SqsConnector {
     ): Either<ReceiveMessagesFailure, List<Message<String>>>
 
     /**
+     * Receives messages from the specified FIFO queue.
+     *
+     * @param queue the queue to receive messages from
+     * @param receiveTimeout the maximum time to wait for messages (long polling)
+     * @param visibilityTimeout the time during which received messages are invisible to other consumers
+     * @return an [Either] containing the list of received [Message]s or a [ReceiveMessagesFailure]
+     */
+    public suspend fun receiveMessages(
+        queue: Queue.Fifo,
+        receiveTimeout: Duration = 10.seconds,
+        visibilityTimeout: Duration = 30.seconds
+    ): Either<ReceiveMessagesFailure, List<Message.Fifo<String>>>
+
+    /**
      * Sends a batch of messages to the specified queue.
      *
      * @param queueUrl the URL of the target queue

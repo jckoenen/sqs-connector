@@ -38,7 +38,8 @@ internal suspend fun SqsClient.receiveMessages(
         val id = Message.Id(message.messageId!!)
         val receiptHandle = Message.ReceiptHandle(message.receiptHandle!!)
         val groupId = attributes[MessageSystemAttributeName.MessageGroupId]?.let(Message<*>::GroupId)
-        val dedupeId = attributes[MessageSystemAttributeName.MessageDeduplicationId]?.let(Message.Fifo::DeduplicationId)
+        val dedupeId =
+            attributes[MessageSystemAttributeName.MessageDeduplicationId]?.let(Message.Fifo<*>::DeduplicationId)
 
         if (queue is Queue.Fifo) {
             FifoMessageImpl(id, receiptHandle, attributes, message.body.orEmpty(), queue, groupId!!, dedupeId!!)

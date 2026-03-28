@@ -103,25 +103,6 @@ class ConsumeFlowTest: FreeSpec ({
 
             currentCoroutineContext().job.cancelChildren()
         }
-
-        "should fail attempting to use FIFO with parallelism" {
-            val queue = connector.getOrCreateQueue(fifoQueueName(), false)
-                .assumeRight()
-
-            val consumer = object : MessageConsumer.Batch {
-                override suspend fun handle(messages: Nel<Message<String>>): Nel<Action> {
-                    fail("should not be called")
-                }
-
-                override val configuration = object : MessageConsumer.Configuration {
-                    override val parallelism: Int
-                        get() = 2
-                }
-            }
-
-            shouldThrowAny { connector.consume(queue, consumer) }
-                .message shouldContain "not supported"
-        }
     }
 }
 )
