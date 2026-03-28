@@ -16,7 +16,9 @@ public interface Queue {
     public val dlq: Queue?
 
     /** Represents a FIFO (First-In-First-Out) SQS queue. */
-    public interface Fifo : Queue
+    public interface Fifo : Queue {
+        override val dlq: Fifo?
+    }
 }
 
 internal data class QueueImpl(
