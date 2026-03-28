@@ -120,7 +120,7 @@ internal class VisibilityManager(
             }
             .forEach { (_, failure) -> activeBatches.remove(failure.reference) }
 
-        schedule(interval, queue, reference)
+        this@schedule.schedule(interval, queue, reference)
     }
 
     private data class BatchMap<T>(private val batches: MutableMap<T, BatchRef<T>> = mutableMapOf()) {
