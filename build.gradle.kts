@@ -91,6 +91,10 @@ tasks {
         gradleReleaseChannel = GradleReleaseChannel.CURRENT.id
         rejectVersionIf { isStable(candidate.version) != isStable(currentVersion) }
     }
+
+    compileTestKotlin {
+        compilerOptions.freeCompilerArgs.add("-Xcontext-parameters")
+    }
 }
 
 spotless {

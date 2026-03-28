@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalStdlibApi::class)
-
 package io.github.jckoenen.sqs.utils
 
 import io.github.jckoenen.sqs.impl.kotlin.flattenToList
