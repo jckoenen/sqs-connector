@@ -41,6 +41,15 @@ internal class KotlinSqsConnector(
     ): Either<SqsFailure.ReceiveMessagesFailure, List<Message<String>>> =
         sqsClient.receiveMessages(queue, receiveTimeout, visibilityTimeout)
 
+    @Suppress("UNCHECKED_CAST") // the implementation produces correct messages by queue type
+    override suspend fun receiveMessages(
+        queue: Queue.Fifo,
+        receiveTimeout: Duration,
+        visibilityTimeout: Duration
+    ): Either<SqsFailure.ReceiveMessagesFailure, List<Message.Fifo<String>>> =
+        sqsClient.receiveMessages(queue, receiveTimeout, visibilityTimeout)
+            as Either<SqsFailure.ReceiveMessagesFailure, List<Message.Fifo<String>>>
+
     override suspend fun sendMessages(
         queueUrl: Queue.Url,
         messages: NonEmptyCollection<OutboundMessage>,

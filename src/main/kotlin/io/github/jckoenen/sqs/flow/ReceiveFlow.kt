@@ -30,14 +30,30 @@ import kotlinx.coroutines.flow.onEach
 public fun SqsConnector.receive(
     queue: Queue,
     visibilityTimeout: Duration = 30.seconds,
-): DrainableFlow<Nel<Message<String>>> {
+): DrainableFlow<Nel<Message<String>>> = receiveImpl { receiveMessages(queue, visibilityTimeout = visibilityTimeout) }
+
+/**
+ * Continuously receives messages from the specified SQS FIFO queue as a stream. The method uses indefinite retry logic
+ * to handle transient polling errors and processes incoming messages as a drainable flow.
+ *
+ * @param queue the SQS queue from which messages are to be received
+ * @param visibilityTimeout the duration for which a polled message is invisible to other clients
+ * @return a [DrainableFlow] emitting non-empty lists of messages
+ */
+public fun SqsConnector.receive(
+    queue: Queue.Fifo,
+    visibilityTimeout: Duration = 30.seconds,
+): DrainableFlow<Nel<Message.Fifo<String>>> = receiveImpl {
+    receiveMessages(queue, visibilityTimeout = visibilityTimeout)
+}
+
+private fun <T : Message<*>> SqsConnector.receiveImpl(
+    fn: suspend SqsConnector.() -> Either<Failure, List<T>>
+): DrainableFlow<Nel<T>> {
     val messagesFlow = flow {
         while (true) {
             val messages =
-                retryIndefinitely(1.seconds, 1.minutes) {
-                    receiveMessages(queue, visibilityTimeout = visibilityTimeout)
-                        .warnOnLeft("Failed to poll messages. Retrying…")
-                }
+                retryIndefinitely(1.seconds, 1.minutes) { fn().warnOnLeft("Failed to poll messages. Retrying…") }
             emit(messages)
         }
     }

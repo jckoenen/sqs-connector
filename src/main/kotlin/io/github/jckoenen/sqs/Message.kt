@@ -1,5 +1,6 @@
 package io.github.jckoenen.sqs
 
+import io.github.jckoenen.sqs.Message.Fifo.DeduplicationId
 import io.github.jckoenen.sqs.Message.GroupId
 
 /**
@@ -28,12 +29,12 @@ public interface Message<out T : Any> : MessageBound {
     public val groupId: GroupId?
 
     /** Features specific to messages from FIFO queues. */
-    public interface Fifo {
+    public interface Fifo<T : Any> : Message<T> {
         /** The token used for deduplication of sent messages. */
         @JvmInline public value class DeduplicationId(public val value: String)
 
         /** The group identifier of the message. */
-        public val groupId: GroupId
+        override val groupId: GroupId
         /** The deduplication identifier of the message. */
         public val deduplicationId: DeduplicationId
     }
@@ -55,5 +56,5 @@ internal data class FifoMessageImpl<T : Any>(
     override val content: T,
     override val queue: Queue.Fifo,
     override val groupId: GroupId,
-    override val deduplicationId: Message.Fifo.DeduplicationId,
-) : Message<T>, Message.Fifo
+    override val deduplicationId: DeduplicationId,
+) : Message.Fifo<T>

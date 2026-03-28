@@ -1,6 +1,9 @@
 package io.github.jckoenen.sqs.utils
 
 import arrow.atomic.Atomic
+import arrow.core.Nel
+import arrow.core.PotentiallyUnsafeNonEmptyOperation
+import arrow.core.wrapAsNonEmptyListOrThrow
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineStart
@@ -28,7 +31,7 @@ private const val HIGH_WATERMARK = 3
 // The number of chunks waiting on downstream to start reading upstream again
 private const val LOW_WATERMARK = 1
 
-internal fun <T> Flow<T>.chunked(size: Int, timeout: Duration): Flow<List<T>> = channelFlow {
+internal fun <T> Flow<T>.chunked(size: Int, timeout: Duration): Flow<Nel<T>> = channelFlow {
     // bridge downstream suspension to the disconnected upstream consumer
     val waitingChunks = MutableStateFlow(0)
 
@@ -38,7 +41,7 @@ internal fun <T> Flow<T>.chunked(size: Int, timeout: Duration): Flow<List<T>> = 
 
     // always possible to send to downstream so that timer cancellation can never lose elements
     // additionally, it ensures that pushing is always fast - that's important because of the mutex
-    val downstream = Channel<List<T>>(capacity = Channel.BUFFERED)
+    val downstream = Channel<Nel<T>>(capacity = Channel.BUFFERED)
     val upstream = this@chunked
 
     // if the item is not null, it's added to the buffer if the buffer is full, flush it downstream;
@@ -49,7 +52,9 @@ internal fun <T> Flow<T>.chunked(size: Int, timeout: Duration): Flow<List<T>> = 
             item?.let(buffer::add)
 
             if (buffer.isNotEmpty() && (item == null || buffer.size == size)) {
-                require(downstream.trySend(buffer).isSuccess)
+                @OptIn(PotentiallyUnsafeNonEmptyOperation::class) val bufferNel = buffer.wrapAsNonEmptyListOrThrow()
+
+                require(downstream.trySend(bufferNel).isSuccess)
                 waitingChunks.update(Int::inc)
                 buffer = ArrayList(size)
                 true
