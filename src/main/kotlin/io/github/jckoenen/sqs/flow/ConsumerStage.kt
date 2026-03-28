@@ -11,7 +11,6 @@ import io.github.jckoenen.sqs.MessageConsumer.Action.RetryBackoff
 import io.github.jckoenen.sqs.SqsConnector
 import io.github.jckoenen.sqs.impl.kotlin.SQS_BATCH_SIZE
 import io.github.jckoenen.sqs.utils.chunked
-import kotlin.math.absoluteValue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.channels.Channel
@@ -61,7 +60,7 @@ private fun Flow<Nel<Message.Fifo<String>>>.consumeFifoIndividually(
 
         this@consumeFifoIndividually.flatMapConcat { it.asFlow() }
             .collect { message ->
-                val partition = message.groupId.value.hashCode().absoluteValue % consumer.configuration.parallelism
+                val partition = message.groupId.value.hashCode().ushr(1) % consumer.configuration.parallelism
                 partitions[partition].send(message)
             }
         partitions.forEach { it.close() }
@@ -81,7 +80,7 @@ private fun Flow<Nel<Message.Fifo<String>>>.consumeFifoInBatch(
     this@consumeFifoInBatch.map { batch -> batch.groupBy { it.groupId } }
         .flatMapConcat { it.asIterable().asFlow() }
         .collect { (id, messages) ->
-            val partition = id.value.hashCode().absoluteValue % consumer.configuration.parallelism
+            val partition = id.value.hashCode().ushr(1) % consumer.configuration.parallelism
             @OptIn(PotentiallyUnsafeNonEmptyOperation::class)
             partitions[partition].send(messages.wrapAsNonEmptyListOrThrow())
         }
