@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.versions)
     alias(libs.plugins.spotless)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.javaagent.test)
 }
 
 group = "io.github.jckoenen"
@@ -50,6 +51,7 @@ dependencies {
     testImplementation(libs.logback.classic)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.kotlinx.coroutines.debug)
+    testJavaagent(libs.byte.buddy.agent)
 
     testImplementation(platform(libs.kotest.bom))
     testImplementation(libs.kotest.runner.junit5)

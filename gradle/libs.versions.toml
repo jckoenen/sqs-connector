@@ -3,6 +3,7 @@ kotlin = "2.3.20"
 versions = "0.53.0"
 spotless = "8.4.0"
 maven-publish = "0.36.0"
+javaagent-test = "0.9.1"
 
 kotlinx-coroutines = "1.10.2"
 kotlinx-datetime = "0.7.1"
@@ -23,6 +24,7 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish"}
+javaagent-test = { id = "com.ryandens.javaagent-test", version.ref = "javaagent-test" }
 
 [libraries]
 kotlin-stdlib = {module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin"}
@@ -59,3 +61,5 @@ kotest-extensions-xml = { module = "io.kotest:kotest-extensions-junitxml" }
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-java = { module = "org.testcontainers:testcontainers" }
 testcontainers-localstack = { module = "org.testcontainers:testcontainers-localstack" }
+
+byte-buddy-agent = { module = "net.bytebuddy:byte-buddy-agent", version = "1.10.9" }
