@@ -52,6 +52,8 @@ public sealed interface MessageConsumer {
          * @return the [Action] to take after processing
          */
         public suspend fun handle(message: Message<String>): Action
+
+        public companion object
     }
 
     /** A consumer that processes messages in batches. */
@@ -66,6 +68,8 @@ public sealed interface MessageConsumer {
          * @return a list of [Action]s, one for each input message
          */
         public suspend fun handle(messages: Nel<Message<String>>): Nel<Action>
+
+        public companion object
     }
 }
 
@@ -76,7 +80,7 @@ public sealed interface MessageConsumer {
  * @param handleFn the suspendable function to handle a batch of messages and produce corresponding actions.
  * @return a batch message consumer configured with the specified parallelism and message handling function.
  */
-public operator fun MessageConsumer.Batch.invoke(
+public operator fun MessageConsumer.Batch.Companion.invoke(
     parallelism: Int = 1,
     handleFn: suspend (Nel<Message<String>>) -> Nel<MessageConsumer.Action>
 ): MessageConsumer.Batch =
@@ -98,7 +102,7 @@ public operator fun MessageConsumer.Batch.invoke(
  * @param handleFn the suspendable function to handle a batch of messages and produce corresponding actions.
  * @return a batch message consumer configured with the specified parallelism and message handling function.
  */
-public operator fun MessageConsumer.Individual.invoke(
+public operator fun MessageConsumer.Individual.Companion.invoke(
     parallelism: Int = 1,
     handleFn: suspend (Message<String>) -> MessageConsumer.Action
 ): MessageConsumer.Individual =
