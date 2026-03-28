@@ -11,19 +11,15 @@ import io.github.jckoenen.sqs.MessageConsumer.Action.RetryBackoff
 import io.github.jckoenen.sqs.SqsConnector
 import io.github.jckoenen.sqs.impl.kotlin.SQS_BATCH_SIZE
 import io.github.jckoenen.sqs.utils.chunked
+import io.github.jckoenen.sqs.utils.concurrentPartition
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 
 private val EXCEPTION_BACKOFF = 1.minutes
 
@@ -50,43 +46,23 @@ internal fun Flow<Nel<Message.Fifo<String>>>.applyConsumerToFifoQueue(
 private fun Flow<Nel<Message.Fifo<String>>>.consumeFifoIndividually(
     consumer: MessageConsumer.Individual,
     chunkWindow: Duration
-): Flow<Nel<MessageConsumer.Action>> {
-    val groupedProcessing = channelFlow {
-        val partitions = List(consumer.configuration.parallelism) { Channel<Message.Fifo<String>>() }
-
-        partitions.forEach { partition ->
-            partition.consumeAsFlow().map(consumer::handleSafely).onEach { send(it) }.launchIn(this)
-        }
-
-        this@consumeFifoIndividually.flatMapConcat { it.asFlow() }
-            .collect { message ->
-                val partition = message.groupId.value.hashCode().ushr(1) % consumer.configuration.parallelism
-                partitions[partition].send(message)
-            }
-        partitions.forEach { it.close() }
-    }
-    return groupedProcessing.chunked(SQS_BATCH_SIZE, chunkWindow)
-}
+): Flow<Nel<MessageConsumer.Action>> =
+    flatMapConcat { it.asFlow() }
+        .concurrentPartition(
+            concurrency = consumer.configuration.parallelism,
+            partitionBy = { it.groupId },
+            processingFn = consumer::handleSafely)
+        .chunked(SQS_BATCH_SIZE, chunkWindow)
 
 private fun Flow<Nel<Message.Fifo<String>>>.consumeFifoInBatch(
     consumer: MessageConsumer.Batch,
-): Flow<Nel<MessageConsumer.Action>> = channelFlow {
-    val partitions = List(consumer.configuration.parallelism) { Channel<Nel<Message.Fifo<String>>>() }
-
-    partitions.forEach { partition ->
-        partition.consumeAsFlow().map(consumer::handleSafely).onEach { send(it) }.launchIn(this)
-    }
-
-    this@consumeFifoInBatch.map { batch -> batch.groupBy { it.groupId } }
+): Flow<Nel<MessageConsumer.Action>> =
+    map { batch -> batch.groupNel { it.groupId } }
         .flatMapConcat { it.asIterable().asFlow() }
-        .collect { (id, messages) ->
-            val partition = id.value.hashCode().ushr(1) % consumer.configuration.parallelism
-            @OptIn(PotentiallyUnsafeNonEmptyOperation::class)
-            partitions[partition].send(messages.wrapAsNonEmptyListOrThrow())
-        }
-
-    partitions.forEach { it.close() }
-}
+        .concurrentPartition(
+            concurrency = consumer.configuration.parallelism,
+            partitionBy = { (groupId, _) -> groupId },
+            processingFn = { (_, messages) -> consumer.handleSafely(messages) })
 
 private suspend fun MessageConsumer.Individual.handleSafely(message: Message<String>) =
     Either.catch { handle(message) }
@@ -115,3 +91,7 @@ private suspend fun MessageConsumer.Batch.handleSafely(messages: Nel<Message<Str
                         "To suppress this message, return MessageConsumer.Action.RetryBackoff instead.")
         }
         .getOrElse { messages.map { RetryBackoff(it, EXCEPTION_BACKOFF) } }
+
+@OptIn(PotentiallyUnsafeNonEmptyOperation::class)
+private inline fun <A, B> Nel<A>.groupNel(groupFn: (A) -> B): Map<B, Nel<A>> =
+    groupBy(groupFn).mapValues { (_, v) -> v.wrapAsNonEmptyListOrThrow() }
