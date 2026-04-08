@@ -1,36 +1,36 @@
 package io.github.jckoenen.sqs.flow
 
-import arrow.core.Nel
 import arrow.core.PotentiallyUnsafeNonEmptyOperation
 import arrow.core.wrapAsNonEmptyListOrThrow
 import io.github.jckoenen.sqs.Message
-import io.github.jckoenen.sqs.MessageConsumer
 import io.github.jckoenen.sqs.MessageConsumer.Action
 import io.github.jckoenen.sqs.OutboundMessage
 import io.github.jckoenen.sqs.testinfra.ProjectKotestConfiguration.Companion.eventually
 import io.github.jckoenen.sqs.testinfra.SqsContainerExtension
-import io.github.jckoenen.sqs.testinfra.SqsContainerExtension.fifoQueueName
 import io.github.jckoenen.sqs.testinfra.SqsContainerExtension.queueName
 import io.github.jckoenen.sqs.testinfra.TestMessageConsumer
 import io.github.jckoenen.sqs.testinfra.assumeRight
-import io.kotest.assertions.fail
-import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldNotBeNull
-import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.takeWhile
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.job
 import org.slf4j.MDC
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(PotentiallyUnsafeNonEmptyOperation::class)
-class ConsumeFlowTest: FreeSpec ({
+class ConsumeFlowTest : FreeSpec({
     "Using SqsConnector.consume" - {
         val connector = SqsContainerExtension.newConnector()
         val visibilityTimeout = 3.seconds
@@ -77,14 +77,14 @@ class ConsumeFlowTest: FreeSpec ({
             val queue = connector.getOrCreateQueue(queueName(), createDlq = true)
                 .assumeRight()
 
-                generateSequence(0, Int::inc)
-                    .take(2)
-                    .map { it.toString() }
-                    .map(::OutboundMessage)
-                    .toList()
-                    .wrapAsNonEmptyListOrThrow()
-                    .let { connector.sendMessages(queue.url, it)}
-                    .assumeRight()
+            generateSequence(0, Int::inc)
+                .take(2)
+                .map { it.toString() }
+                .map(::OutboundMessage)
+                .toList()
+                .wrapAsNonEmptyListOrThrow()
+                .let { connector.sendMessages(queue.url, it) }
+                .assumeRight()
 
             val mdc = CompletableDeferred<Map<String, String>?>()
 
@@ -100,6 +100,33 @@ class ConsumeFlowTest: FreeSpec ({
                 keys shouldContain "sqs.queue.url"
                 keys shouldContain "sqs.queue.name"
             }
+
+            currentCoroutineContext().job.cancelChildren()
+        }
+
+        "should apply configured concurrency" {
+            val queue = connector.getOrCreateQueue(queueName(), createDlq = true)
+                .assumeRight()
+
+            val callCount = MutableStateFlow(0)
+            val parallelism = 5
+
+            generateSequence(0, Int::inc)
+                .take(parallelism)
+                .map { it.toString() }
+                .map(::OutboundMessage)
+                .toList()
+                .wrapAsNonEmptyListOrThrow()
+                .let { connector.sendMessages(queue.url, it) }
+                .assumeRight()
+
+            val consumer = TestMessageConsumer.create(parallelism = parallelism) {
+                callCount.update(Int::inc)
+                awaitCancellation()
+            }
+            connector.consume(queue, consumer).launchWithDrainControl(this)
+
+            eventually {  callCount.value shouldBe parallelism }
 
             currentCoroutineContext().job.cancelChildren()
         }

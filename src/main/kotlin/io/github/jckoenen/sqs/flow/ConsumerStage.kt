@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flatMapMerge
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 private val EXCEPTION_BACKOFF = 1.minutes
@@ -26,12 +26,12 @@ private val EXCEPTION_BACKOFF = 1.minutes
 internal fun Flow<Nel<Message<String>>>.applyConsumerToRegularQueue(consumer: MessageConsumer, chunkWindow: Duration) =
     when (consumer) {
         is MessageConsumer.Individual ->
-            flatMapMerge(consumer.configuration.parallelism, List<Message<String>>::asFlow)
-                .map(consumer::handleSafely)
+            flatMapConcat { it.asFlow() }
+                .flatMapMerge(consumer.configuration.parallelism) { flowOf(it).map(consumer::handleSafely) }
                 .chunked(SQS_BATCH_SIZE, chunkWindow)
 
         is MessageConsumer.Batch ->
-            flatMapMerge(consumer.configuration.parallelism) { batch -> flow { emit(consumer.handleSafely(batch)) } }
+            flatMapMerge(consumer.configuration.parallelism) { flowOf(it).map(consumer::handleSafely) }
     }
 
 internal fun Flow<Nel<Message.Fifo<String>>>.applyConsumerToFifoQueue(
