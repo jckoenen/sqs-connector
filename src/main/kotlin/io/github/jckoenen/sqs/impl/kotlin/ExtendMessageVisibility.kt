@@ -80,4 +80,7 @@ private fun <T : Any> extractAlreadyDeleted(
 }
 
 private fun isAlreadyDeleted(entry: SqsConnector.FailedBatchEntry<*>) =
-    entry.senderFault == false && entry.code == "InvalidParameterValueException"
+    entry.senderFault == false &&
+        (entry.code == "InvalidParameterValueException" ||
+            entry.code == "ReceiptHandleIsInvalid" ||
+            entry.code == "MessageNotInflight")
