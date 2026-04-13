@@ -1,7 +1,6 @@
 package io.github.jckoenen.sqs
 
 import aws.smithy.kotlin.runtime.SdkBaseException
-import io.github.jckoenen.sqs.impl.kotlin.CHANGE_OPERATION
 import io.github.jckoenen.sqs.utils.QueueId
 import io.github.jckoenen.sqs.utils.asTags
 import io.github.jckoenen.sqs.utils.opTag
@@ -18,15 +17,7 @@ public sealed interface SqsFailure : Failure {
 
     public sealed interface DeleteMessagesFailure : SqsFailure
 
-    public sealed interface ChangeMessagesFailure : SqsFailure {
-        public data class MessageAlreadyDeleted(val queue: QueueId) : ChangeMessagesFailure {
-            override val customTags: Map<String, Any>
-                get() = opTag(CHANGE_OPERATION) + queue.asTags()
-
-            override val message: String
-                get() = "This message was already deleted"
-        }
-    }
+    public sealed interface ChangeMessagesFailure : SqsFailure
 
     public data class QueueDoesNotExist(
         val operation: String,

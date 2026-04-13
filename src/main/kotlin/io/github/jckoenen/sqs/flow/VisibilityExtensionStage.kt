@@ -6,7 +6,6 @@ import io.github.jckoenen.sqs.Message
 import io.github.jckoenen.sqs.MessageBound
 import io.github.jckoenen.sqs.Queue
 import io.github.jckoenen.sqs.SqsConnector
-import io.github.jckoenen.sqs.SqsFailure.ChangeMessagesFailure.MessageAlreadyDeleted
 import io.github.jckoenen.sqs.allTags
 import io.github.jckoenen.sqs.utils.asTags
 import io.github.jckoenen.sqs.utils.id
@@ -29,6 +28,7 @@ import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
+import org.slf4j.event.Level
 
 internal fun <T : MessageBound, C : Collection<T>> VisibilityManager.trackInbound(flow: Flow<C>): Flow<C> =
     channelFlow {
@@ -102,26 +102,26 @@ internal class VisibilityManager(
             .orEmpty()
             .flatMap { (cause, affected) -> affected.map { cause to it } }
             .onEach { (cause, failure) ->
-                if (cause is MessageAlreadyDeleted) {
-                    logger
-                        .atDebug()
-                        .addKeyValue("sqs.failure.ref", failure.reference)
-                        .log("Message was already deleted, ignoring")
-                } else {
-                    logger
-                        .atWarn()
-                        .putAll(cause.allTags())
-                        .addKeyValue("sqs.failure.ref", failure.reference)
-                        .addKeyValue("sqs.failure.code", failure.code)
-                        .addKeyValue("sqs.failure.message", failure.errorMessage)
-                        .addKeyValue("sqs.failure.senderFault", failure.senderFault)
-                        .log("Couldn't extend visibility for message. Will NOT retry")
-                }
+                val level = if (isAlreadyDeleted(failure)) Level.DEBUG else Level.WARN
+                logger
+                    .atLevel(level)
+                    .putAll(cause.allTags())
+                    .addKeyValue("sqs.failure.ref", failure.reference)
+                    .addKeyValue("sqs.failure.code", failure.code)
+                    .addKeyValue("sqs.failure.message", failure.errorMessage)
+                    .addKeyValue("sqs.failure.senderFault", failure.senderFault)
+                    .log("Couldn't extend visibility for message. Will NOT retry")
             }
             .forEach { (_, failure) -> activeBatches.remove(failure.reference) }
 
         this@schedule.schedule(interval, queue, reference)
     }
+
+    private fun isAlreadyDeleted(entry: SqsConnector.FailedBatchEntry<*>) =
+        entry.senderFault == false &&
+            (entry.code == "InvalidParameterValueException" ||
+                entry.code == "ReceiptHandleIsInvalid" ||
+                entry.code == "MessageNotInflight")
 
     private data class BatchMap<T>(private val batches: MutableMap<T, BatchRef<T>> = mutableMapOf()) {
         /**
