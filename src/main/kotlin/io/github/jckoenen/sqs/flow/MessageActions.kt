@@ -84,11 +84,13 @@ private inline fun <reified A : Action> BatchResult<Failure, *>.logOutcome(ignor
             .log("Action succeeded")
     }
 
-    leftOrNull().orEmpty().forEach { (cause, messages) ->
+    leftOrNull()?.forEach { (cause, failures) ->
+        val errorsByCode = failures.groupingBy { it.code }.eachCount()
         SqsConnector.logger
             .atWarn()
             .addKeyValue("sqs.action", A::class.simpleName)
-            .addKeyValue("sqs.messages.count", messages.size)
+            .addKeyValue("sqs.messages.count", failures.size)
+            .addKeyValue("sqs.failure.codes", errorsByCode)
             .putAll(cause.allTags())
             .log("Action (partially?) failed")
     }
