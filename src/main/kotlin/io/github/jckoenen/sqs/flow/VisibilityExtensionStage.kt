@@ -118,10 +118,9 @@ internal class VisibilityManager(
     }
 
     private fun isAlreadyDeleted(entry: SqsConnector.FailedBatchEntry<*>) =
-        entry.senderFault == false &&
-            (entry.code == "InvalidParameterValueException" ||
-                entry.code == "ReceiptHandleIsInvalid" ||
-                entry.code == "MessageNotInflight")
+        entry.code == "InvalidParameterValueException" ||
+            entry.code == "ReceiptHandleIsInvalid" ||
+            entry.code == "MessageNotInflight"
 
     private data class BatchMap<T>(private val batches: MutableMap<T, BatchRef<T>> = mutableMapOf()) {
         /**
