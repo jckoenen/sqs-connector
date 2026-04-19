@@ -2,7 +2,8 @@ package io.github.jckoenen.sqs.flow
 
 import arrow.core.Either
 import arrow.core.Nel
-import arrow.core.toNonEmptyListOrNull
+import arrow.core.PotentiallyUnsafeNonEmptyOperation
+import arrow.core.wrapAsNonEmptyListOrNull
 import io.github.jckoenen.sqs.Failure
 import io.github.jckoenen.sqs.Message
 import io.github.jckoenen.sqs.Queue
@@ -14,7 +15,6 @@ import io.github.jckoenen.sqs.utils.retryIndefinitely
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onEach
@@ -47,6 +47,7 @@ public fun SqsConnector.receive(
     receiveMessages(queue, visibilityTimeout = visibilityTimeout)
 }
 
+@OptIn(PotentiallyUnsafeNonEmptyOperation::class)
 private fun <T : Message<*>> SqsConnector.receiveImpl(
     fn: suspend SqsConnector.() -> Either<Failure, List<T>>
 ): DrainableFlow<Nel<T>> {
@@ -59,7 +60,7 @@ private fun <T : Message<*>> SqsConnector.receiveImpl(
     }
     return messagesFlow
         .onEach { if (it.isEmpty()) SqsConnector.logger.debug("No messages received") }
-        .mapNotNull { it.toNonEmptyListOrNull() }
+        .mapNotNull { it.wrapAsNonEmptyListOrNull() }
         .drainable()
 }
 
@@ -75,9 +76,9 @@ public fun SqsConnector.receive(
     queueName: Queue.Name,
     visibilityTimeout: Duration = 30.seconds,
 ): DrainableFlow<Nel<Message<String>>> =
-    channelFlow {
+    flow {
             val queue = resolveQueue(queueName)
-            receive(queue, visibilityTimeout).collect(::send)
+            receive(queue, visibilityTimeout).collect(::emit)
         }
         .drainable()
 
