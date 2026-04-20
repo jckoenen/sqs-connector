@@ -3,13 +3,15 @@ package io.github.jckoenen.sqs.flow
 import arrow.atomic.Atomic
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.internal.FusibleFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -29,10 +31,13 @@ internal fun <T> Flow<T>.drainableImpl(): DrainableFlow<T> =
         }
         .let(::DrainableFlowImpl)
 
-internal fun <T> drainableImpl(f: suspend FlowCollector<T>.() -> Unit) = flow(f).drainableImpl()
-
+@OptIn(InternalCoroutinesApi::class)
 @JvmInline
-internal value class DrainableFlowImpl<T>(private val delegate: Flow<T>) : DrainableFlow<T> {
+private value class DrainableFlowImpl<T>(private val delegate: FusibleFlow<T>) :
+    DrainableFlow<T>, FusibleFlow<T> by delegate {
+
+    constructor(delegate: Flow<T>) : this(delegate as? FusibleFlow<T> ?: delegate.buffer(0) as FusibleFlow<T>)
+
     override suspend fun collect(collector: FlowCollector<T>) = delegate.collect(collector)
 
     override fun launchWithDrainControl(scope: CoroutineScope): DrainControl {
