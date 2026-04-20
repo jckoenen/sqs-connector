@@ -51,8 +51,7 @@ val consumer = MessageConsumer.Individual { message ->
 }
 
 // connect consumer to a queue
-val drainControl = connector.consume(Queue.Name("my-queue"), consumer)
-    .launchWithDrainControl(this)
+val drainControl = connector.consumeIn(Queue.Name("my-queue"), consumer, parentScope = this)
 
 // stop receiving but handle all inflight messages
 val completed = withTimeoutOrNull(10.seconds) { drainControl.drainAndJoin() }

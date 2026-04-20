@@ -47,23 +47,6 @@ public fun SqsConnector.receive(
     receiveMessages(queue, visibilityTimeout = visibilityTimeout)
 }
 
-@OptIn(PotentiallyUnsafeNonEmptyOperation::class)
-private fun <T : Message<*>> SqsConnector.receiveImpl(
-    fn: suspend SqsConnector.() -> Either<Failure, List<T>>
-): DrainableFlow<Nel<T>> {
-    val messagesFlow = flow {
-        while (true) {
-            val messages =
-                retryIndefinitely(1.seconds, 1.minutes) { fn().warnOnLeft("Failed to poll messages. Retrying…") }
-            emit(messages)
-        }
-    }
-    return messagesFlow
-        .onEach { if (it.isEmpty()) SqsConnector.logger.debug("No messages received") }
-        .mapNotNull { it.wrapAsNonEmptyListOrNull() }
-        .drainable()
-}
-
 /**
  * Receives messages from an SQS queue (by name) as a drainable flow. This method retries indefinitely to resolve the
  * queue name and then continuously polls for messages.
@@ -82,6 +65,23 @@ public fun SqsConnector.receive(
         }
         .drainable()
 
-private fun <F : Failure, T> Either<F, T>.warnOnLeft(message: String) = onLeft {
+@OptIn(PotentiallyUnsafeNonEmptyOperation::class)
+private fun <T : Message<*>> SqsConnector.receiveImpl(
+    fn: suspend SqsConnector.() -> Either<Failure, List<T>>
+): DrainableFlow<Nel<T>> {
+    val messagesFlow = flow {
+        while (true) {
+            val messages =
+                retryIndefinitely(1.seconds, 1.minutes) { fn().warnOnLeft("Failed to poll messages. Retrying…") }
+            emit(messages)
+        }
+    }
+    return messagesFlow
+        .onEach { if (it.isEmpty()) SqsConnector.logger.debug("No messages received") }
+        .mapNotNull { it.wrapAsNonEmptyListOrNull() }
+        .drainable()
+}
+
+internal fun <F : Failure, T> Either<F, T>.warnOnLeft(message: String) = onLeft {
     SqsConnector.logger.atWarn().putAll(it.allTags()).log(message)
 }

@@ -1,6 +1,5 @@
 package io.github.jckoenen.sqs.flow
 
-import arrow.core.identity
 import arrow.core.toNonEmptySetOrNull
 import io.github.jckoenen.sqs.Message
 import io.github.jckoenen.sqs.MessageBound
@@ -13,14 +12,12 @@ import io.github.jckoenen.sqs.utils.putAll
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.onTimeout
@@ -151,18 +148,18 @@ internal class VisibilityManager(
         suspend fun remove(element: T) = mutex.withLock { batches.remove(element)?.remove(element) }
 
         data class BatchRef<T>(private val items: MutableSet<T>, private val mutex: Mutex) {
-            private val empty = MutableStateFlow(false)
+            private val done = CompletableDeferred<Unit>()
 
             suspend fun items() = mutex.withLock(action = items::toNonEmptySetOrNull)
 
             fun remove(item: T) {
                 if (items.remove(item) && items.isEmpty()) {
-                    empty.value = true
+                    done.complete(Unit)
                 }
             }
 
             suspend fun awaitEmpty() {
-                empty.filter(::identity).firstOrNull()
+                done.await()
             }
         }
     }

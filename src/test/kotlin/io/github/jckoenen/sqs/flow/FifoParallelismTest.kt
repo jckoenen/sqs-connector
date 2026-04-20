@@ -39,8 +39,7 @@ class FifoParallelismTest : FreeSpec({
 
             val consumer = TestMessageConsumer.create(parallelism = 3) { Action.DeleteMessage(it) }
 
-            connector.consume(queue, consumer, visibilityTimeout = visibilityTimeout)
-                .launchWithDrainControl(this)
+            connector.consumeIn(queue, consumer, this, visibilityTimeout = visibilityTimeout)
 
             eventually {
                 val received = consumer.seen.value.map(Message<String>::content)
@@ -60,8 +59,7 @@ class FifoParallelismTest : FreeSpec({
 
             val consumer = TestMessageConsumer.create(parallelism = 3) { Action.DeleteMessage(it) }
 
-            connector.consume(queue, consumer, visibilityTimeout = visibilityTimeout)
-                .launchWithDrainControl(this)
+            connector.consumeIn(queue, consumer, this, visibilityTimeout = visibilityTimeout)
 
             val seen = consumer.seen
                 .firstOrNull { it.size == outbound.size }
@@ -96,8 +94,7 @@ class FifoParallelismTest : FreeSpec({
                 }
             }
 
-            connector.consume(queue, consumer, visibilityTimeout = visibilityTimeout)
-                .launchWithDrainControl(this)
+            connector.consumeIn(queue, consumer, this, visibilityTimeout = visibilityTimeout)
 
             eventually {
                 seen shouldContainExactlyInAnyOrder outbound.map { it.content }

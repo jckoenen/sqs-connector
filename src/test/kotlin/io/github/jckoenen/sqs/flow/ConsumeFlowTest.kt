@@ -13,7 +13,10 @@ import io.github.jckoenen.sqs.testinfra.assumeRight
 import io.kotest.core.spec.style.FreeSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldNotContainAnyOf
+import io.kotest.matchers.ints.beGreaterThanOrEqualTo
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
@@ -22,9 +25,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.job
 import org.slf4j.MDC
 import kotlin.time.Duration.Companion.seconds
@@ -55,11 +56,9 @@ class ConsumeFlowTest : FreeSpec({
             qConsumer.seen.launchIn(this)
             dlqConsumer.seen.launchIn(this)
 
-            connector.consume(queue, qConsumer, visibilityTimeout = visibilityTimeout)
-                .launchWithDrainControl(this)
+            connector.consumeIn(queue, qConsumer, this, visibilityTimeout = visibilityTimeout)
 
-            connector.consume(dlq, dlqConsumer, visibilityTimeout = visibilityTimeout)
-                .launchWithDrainControl(this)
+            connector.consumeIn(dlq, dlqConsumer, this, visibilityTimeout = visibilityTimeout)
 
             eventually {
                 val inDlq = dlqConsumer.seen.value.map(Message<String>::content)
@@ -92,7 +91,7 @@ class ConsumeFlowTest : FreeSpec({
                 mdc.complete(MDC.getCopyOfContextMap())
                 Action.DeleteMessage(it)
             }
-            connector.consume(queue, consumer).launchWithDrainControl(this)
+            connector.consumeIn(queue, consumer, this)
 
             with(mdc.await()) {
                 shouldNotBeNull()
@@ -124,9 +123,51 @@ class ConsumeFlowTest : FreeSpec({
                 callCount.update(Int::inc)
                 awaitCancellation()
             }
-            connector.consume(queue, consumer).launchWithDrainControl(this)
+            connector.consumeIn(queue, consumer, this)
 
-            eventually {  callCount.value shouldBe parallelism }
+            eventually { callCount.value shouldBe parallelism }
+
+            currentCoroutineContext().job.cancelChildren()
+        }
+
+        "visibility extension should work when consumer is slow" {
+            val queue = connector.getOrCreateQueue(queueName(), createDlq = true)
+                .assumeRight()
+
+            val signal = CompletableDeferred<Unit>()
+            val count = 1000 // need a high number of messages to exhaust the flow internal buffer
+
+            generateSequence(0, Int::inc)
+                .take(count)
+                .map { it.toString() }
+                .map(::OutboundMessage)
+                .toList()
+                .wrapAsNonEmptyListOrThrow()
+                .let { connector.sendMessages(queue.url, it) }
+                .assumeRight()
+
+            val a = TestMessageConsumer.create {
+                signal.await()
+                Action.DeleteMessage(it)
+            }
+            val b = TestMessageConsumer.create { Action.DeleteMessage(it) }
+
+            connector.consumeIn(queue, a, this, visibilityTimeout = visibilityTimeout)
+            delay(visibilityTimeout * 2)
+            signal.complete(Unit)
+            connector.consumeIn(queue, b, this, visibilityTimeout = visibilityTimeout)
+
+            eventually {
+                val aSize = a.seen.value.size
+                val bSize = b.seen.value.size
+
+                (aSize + bSize) should beGreaterThanOrEqualTo(count)
+            }
+
+            val aSeen = a.seen.value.mapTo(mutableSetOf(), Message<String>::content)
+            val bSeen = b.seen.value.mapTo(mutableSetOf(), Message<String>::content)
+
+            aSeen shouldNotContainAnyOf bSeen
 
             currentCoroutineContext().job.cancelChildren()
         }
