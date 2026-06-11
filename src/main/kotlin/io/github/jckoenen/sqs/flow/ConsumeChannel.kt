@@ -1,9 +1,11 @@
 package io.github.jckoenen.sqs.flow
 
 import arrow.core.Either
+import arrow.core.Nel
 import arrow.core.toNonEmptyListOrNull
 import io.github.jckoenen.sqs.Failure
 import io.github.jckoenen.sqs.Message
+import io.github.jckoenen.sqs.MessageBound
 import io.github.jckoenen.sqs.MessageConsumer
 import io.github.jckoenen.sqs.Queue
 import io.github.jckoenen.sqs.SqsConnector
@@ -18,14 +20,17 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // These are just best guess
 private const val CHUNK_WINDOW_FACTOR = .6
@@ -72,28 +77,36 @@ private fun SqsConnector.consumeImpl(
 
     val chunkWindow = visibilityTimeout * CHUNK_WINDOW_FACTOR
 
-    val (channel, flow) =
+    val (pollJob, flow) =
         if (queue is Queue.Fifo) {
-            val channel =
-                receiveChannel(scope, visibilityManager) { receiveMessages(queue, receiveTimeout = 20.seconds) }
-            channel to
+            val (channel, pollJob) =
+                receiveChannel(scope, visibilityManager) {
+                    receiveMessages(queue, receiveTimeout = 20.seconds, visibilityTimeout = visibilityTimeout)
+                }
+            val flow =
                 channel
                     .receiveAsFlow()
                     .buffer(consumer.configuration.parallelism)
                     .applyConsumerToFifoQueue(consumer, chunkWindow)
+
+            pollJob to flow
         } else {
-            val channel =
-                receiveChannel(scope, visibilityManager) { receiveMessages(queue, receiveTimeout = 20.seconds) }
-            channel to
+            val (channel, pollJob) =
+                receiveChannel(scope, visibilityManager) {
+                    receiveMessages(queue, receiveTimeout = 20.seconds, visibilityTimeout = visibilityTimeout)
+                }
+            val flow =
                 channel
                     .receiveAsFlow()
                     .buffer(consumer.configuration.parallelism)
                     .applyConsumerToRegularQueue(consumer, chunkWindow)
+
+            pollJob to flow
         }
 
     flow
         .onEach { applyMessageActions(it, queue) }
-        .maybe { visibilityManager?.trackOutbound(it) }
+        .stopTracking(visibilityManager)
         .launchIn(scope)
         .invokeOnCompletion { ex ->
             when (ex) {
@@ -103,30 +116,74 @@ private fun SqsConnector.consumeImpl(
             }
         }
 
-    return ChannelDrainImpl(channel, job)
+    return ConsumeDrainImpl(pollJob, job)
 }
 
+/**
+ * Starts a poll-loop coroutine that feeds received message batches into a newly created [Channel].
+ *
+ * The returned [Job] is the poll-loop itself. Cancelling it (the way [ConsumeDrainImpl.drain] does it) interrupts any
+ * in-flight poll and closes the channel _normally_ via the `finally` block, so downstream flow collectors see a clean
+ * end-of-stream and can finish processing buffered messages.
+ *
+ * Visibility-extension tasks are launched against the outer [scope] (not the poll-loop), so they outlive drain and keep
+ * extending visibility for messages already in the downstream pipeline until those messages reach
+ * [VisibilityManager.stopTracking].
+ *
+ * If a polled batch is tracked but fails to be delivered to the channel (e.g. because the poll-loop is cancelled during
+ * [Channel.send]), the catch block untracks it under [NonCancellable] so the matching visibility task can finish.
+ */
 private inline fun <T : Message<*>> SqsConnector.receiveChannel(
     scope: CoroutineScope,
     manager: VisibilityManager?,
-    crossinline fn: suspend SqsConnector.() -> Either<Failure, List<T>>
-) =
-    scope.produce {
-        while (true) {
-            val messages =
-                retryIndefinitely(1.seconds, 1.minutes) { fn().warnOnLeft("Failed to poll messages. Retrying…") }
-                    .toNonEmptyListOrNull()
-            if (messages != null) {
-                manager?.startTracking(messages, this)
-                send(messages)
-            } else {
-                SqsConnector.logger.debug("Poll did not receive any messages")
+    crossinline pollFn: suspend SqsConnector.() -> Either<Failure, List<T>>
+): Pair<ReceiveChannel<Nel<T>>, Job> {
+    val channel = Channel<Nel<T>>(Channel.RENDEZVOUS)
+    val pollJob =
+        scope.launch(CoroutineName("sqs-poll")) {
+            try {
+                while (true) {
+                    pollOnce(pollFn, manager, scope, channel)
+                }
+            } finally {
+                channel.close()
             }
         }
-    }
-
-private data class ChannelDrainImpl(private val channel: ReceiveChannel<*>, override val job: Job) : DrainControl {
-    override fun drain() = channel.cancel()
+    return channel to pollJob
 }
 
-private inline fun <T> Flow<T>.maybe(f: (Flow<T>) -> Flow<T>?): Flow<T> = f(this) ?: this
+private suspend inline fun <T : Message<*>> SqsConnector.pollOnce(
+    pollFn: suspend SqsConnector.() -> Either<Failure, List<T>>,
+    manager: VisibilityManager?,
+    scope: CoroutineScope,
+    channel: Channel<Nel<T>>
+) {
+    val messages =
+        retryIndefinitely(1.seconds, 1.minutes) { pollFn().warnOnLeft("Failed to poll messages. Retrying…") }
+            .toNonEmptyListOrNull()
+
+    if (messages == null) {
+        SqsConnector.logger.debug("Poll did not receive any messages")
+        return
+    }
+
+    try {
+        // track messages before sending it downstream, so that they don't expire if sending suspends
+        manager?.startTracking(messages, scope)
+        channel.send(messages)
+    } catch (e: Throwable) {
+        // if there's any failure in tracking or sending, we must let go of the message so that it becomes available
+        // again
+        withContext(NonCancellable) { messages.forEach { manager?.stopTracking(it) } }
+        throw e
+    }
+}
+
+private data class ConsumeDrainImpl(private val pollJob: Job, override val job: Job) : DrainControl {
+    override fun drain() {
+        pollJob.cancel(CancellationException("Drain requested"))
+    }
+}
+
+private fun <T : MessageBound, C : Collection<T>> Flow<C>.stopTracking(manager: VisibilityManager?) =
+    if (manager == null) this else onEach { batch -> batch.forEach { manager.stopTracking(it) } }

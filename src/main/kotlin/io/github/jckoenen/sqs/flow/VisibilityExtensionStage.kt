@@ -16,8 +16,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.onTimeout
@@ -26,14 +24,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
-
-internal fun <T : MessageBound, C : Collection<T>> VisibilityManager.trackInbound(flow: Flow<C>): Flow<C> =
-    channelFlow {
-        flow.onEach { startTracking(it, this) }.collect(::send)
-    }
-
-internal fun <T : MessageBound, C : Collection<T>> VisibilityManager.trackOutbound(flow: Flow<C>) =
-    flow.onEach { batch -> batch.forEach { stopTracking(it) } }
 
 internal class VisibilityManager(
     private val connector: SqsConnector,
