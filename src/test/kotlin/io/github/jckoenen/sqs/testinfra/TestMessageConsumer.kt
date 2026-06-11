@@ -26,7 +26,7 @@ internal abstract class TestMessageConsumer private constructor(parallelism: Int
     protected abstract suspend fun doHandle(message: Message<String>): Action
 
     companion object {
-        fun create(parallelism: Int = 1, handleFn: suspend (Message<String>) -> Action) =
+        fun create(parallelism: Int = 1, handleFn: suspend (Message<String>) -> Action = Action::DeleteMessage) =
             object : TestMessageConsumer(parallelism) {
                 override suspend fun doHandle(message: Message<String>): Action = handleFn(message)
             }
