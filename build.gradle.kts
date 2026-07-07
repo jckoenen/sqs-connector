@@ -21,10 +21,7 @@ repositories { mavenCentral() }
 kotlin {
     jvmToolchain(21)
     explicitApi()
-    compilerOptions {
-        optIn.add("kotlinx.coroutines.ExperimentalCoroutinesApi")
-        freeCompilerArgs.add("-Xcontext-parameters")
-    }
+    compilerOptions { optIn.add("kotlinx.coroutines.ExperimentalCoroutinesApi") }
 }
 
 dependencies {

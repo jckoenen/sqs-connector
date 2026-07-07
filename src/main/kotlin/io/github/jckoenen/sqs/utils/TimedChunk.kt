@@ -47,21 +47,20 @@ internal fun <T> Flow<T>.chunked(size: Int, timeout: Duration): Flow<Nel<T>> = c
     // if the item is not null, it's added to the buffer if the buffer is full, flush it downstream;
     // if the item is null, flush the buffer if it's not empty
     // returns true if the buffer was flushed, false otherwise
-    suspend fun push(item: T?): Boolean =
-        bufferMutex.withLock {
-            item?.let(buffer::add)
+    suspend fun push(item: T?): Boolean = bufferMutex.withLock {
+        item?.let(buffer::add)
 
-            if (buffer.isNotEmpty() && (item == null || buffer.size == size)) {
-                @OptIn(PotentiallyUnsafeNonEmptyOperation::class) val bufferNel = buffer.wrapAsNonEmptyListOrThrow()
+        if (buffer.isNotEmpty() && (item == null || buffer.size == size)) {
+            @OptIn(PotentiallyUnsafeNonEmptyOperation::class) val bufferNel = buffer.wrapAsNonEmptyListOrThrow()
 
-                require(downstream.trySend(bufferNel).isSuccess)
-                waitingChunks.update(Int::inc)
-                buffer = ArrayList(size)
-                true
-            } else {
-                false
-            }
+            require(downstream.trySend(bufferNel).isSuccess)
+            waitingChunks.update(Int::inc)
+            buffer = ArrayList(size)
+            true
+        } else {
+            false
         }
+    }
 
     // currently active timer
     val timer = Atomic<Job?>()

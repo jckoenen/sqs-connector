@@ -18,14 +18,13 @@ internal inline fun <T, R> Flow<T>.concurrentPartition(
 ): Flow<R> = channelFlow {
     check(concurrency > 0) { "Concurrency must be > 0, got $concurrency" }
     val partitions = List(concurrency) { Channel<T>() }
-    val workers =
-        partitions.mapIndexed { index, channel ->
-            channel
-                .consumeAsFlow()
-                .map(processingFn)
-                .onEach(::send)
-                .launchIn(this + CoroutineName("partition-worker-$index"))
-        }
+    val workers = partitions.mapIndexed { index, channel ->
+        channel
+            .consumeAsFlow()
+            .map(processingFn)
+            .onEach(::send)
+            .launchIn(this + CoroutineName("partition-worker-$index"))
+    }
 
     this@concurrentPartition.collect {
         val discriminator = partitionBy(it)
