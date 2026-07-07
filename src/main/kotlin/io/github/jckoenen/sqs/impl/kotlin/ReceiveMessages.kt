@@ -27,7 +27,7 @@ internal suspend fun SqsClient.receiveMessages(
                     waitTimeSeconds = receiveTimeout.inWholeSeconds.toInt()
                     queueUrl = queue.url.value
                     messageAttributeNames = listOf("*")
-                    messageSystemAttributeNames = MessageSystemAttributeName.values()
+                    messageSystemAttributeNames = listOf(MessageSystemAttributeName.All)
                     this.visibilityTimeout = visibilityTimeout.inWholeSeconds.toInt()
                 }
             }
