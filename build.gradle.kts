@@ -14,7 +14,7 @@ plugins {
 
 group = "io.github.jckoenen"
 
-version = "0.5.0"
+version = "0.5.1"
 
 repositories { mavenCentral() }
 
