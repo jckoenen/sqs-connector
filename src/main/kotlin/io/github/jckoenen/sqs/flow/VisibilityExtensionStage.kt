@@ -126,13 +126,12 @@ internal class VisibilityManager(
          * The items reference in the ref is itself mutable, meaning a call to [remove] will remove it from our global
          * [batches] map, but also from the individual ref it was contained in
          */
-        suspend fun register(batch: Collection<T>): BatchRef<T> =
-            mutex.withLock {
-                val inner = batch.toMutableSet()
-                val ref = BatchRef(inner, mutex)
-                inner.forEach { k -> batches[k] = ref }
-                ref
-            }
+        suspend fun register(batch: Collection<T>): BatchRef<T> = mutex.withLock {
+            val inner = batch.toMutableSet()
+            val ref = BatchRef(inner, mutex)
+            inner.forEach { k -> batches[k] = ref }
+            ref
+        }
 
         /** Removes the element from the global reference AND from whatever [BatchRef] it was associated to. */
         suspend fun remove(element: T) = mutex.withLock { batches.remove(element)?.remove(element) }

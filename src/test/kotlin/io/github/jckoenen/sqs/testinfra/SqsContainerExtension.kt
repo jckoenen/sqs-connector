@@ -40,15 +40,14 @@ internal object SqsContainerExtension : BeforeProjectListener, AfterProjectListe
         scope.async(start = CoroutineStart.LAZY) {
             withContext(Dispatchers.IO) { container.start() }
 
-            val client =
-                SqsClient.fromEnvironment {
-                    region = container.region
-                    endpointUrl = Url.parse(container.endpoint.toString())
-                    credentialsProvider = StaticCredentialsProvider {
-                        accessKeyId = container.accessKey
-                        secretAccessKey = container.secretKey
-                    }
+            val client = SqsClient.fromEnvironment {
+                region = container.region
+                endpointUrl = Url.parse(container.endpoint.toString())
+                credentialsProvider = StaticCredentialsProvider {
+                    accessKeyId = container.accessKey
+                    secretAccessKey = container.secretKey
                 }
+            }
             // localstack is NOT immediately ready, wait for one call to succeed
             eventually(10.seconds) { client.listQueues { maxResults = 1 } }
 
