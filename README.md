@@ -138,6 +138,18 @@ Tests use [Testcontainers](https://www.testcontainers.org/) with LocalStack to p
 
 ### Releasing
 
+Releases are driven by git tags. Push a `vX.Y.Z` tag and CI publishes to Maven
+Central and creates a GitHub release:
+
 ```bash
-op run --env-file="deploy-secrets.env" -- ./gradlew publishToMavenCentral --no-daemon
+git tag v0.5.2
+git push origin v0.5.2
+```
+
+The version comes from the tag, so there is nothing to bump in `build.gradle.kts`.
+
+To publish from a workstation instead, pass the version explicitly:
+
+```bash
+op run --env-file="deploy-secrets.env" -- ./gradlew publishToMavenCentral --no-daemon -PreleaseVersion=0.5.2
 ```

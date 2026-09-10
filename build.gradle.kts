@@ -14,7 +14,8 @@ plugins {
 
 group = "io.github.jckoenen"
 
-version = "0.5.2"
+// Releases are driven by git tags: CI passes -PreleaseVersion=<tag without the leading v>.
+version = providers.gradleProperty("releaseVersion").getOrElse("0.0.0-SNAPSHOT")
 
 repositories { mavenCentral() }
 
