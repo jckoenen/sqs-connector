@@ -69,7 +69,7 @@ private suspend fun MessageConsumer.Individual.handleSafely(message: Message<Str
         .onLeft {
             SqsConnector.logger
                 .atError()
-                .addKeyValue("sqs.consumer", this::class)
+                .addKeyValue("sqs.consumer", this.javaClass.name)
                 .setCause(it)
                 .addKeyValue("sqs.message.id", message.id)
                 .log(
@@ -83,7 +83,7 @@ private suspend fun MessageConsumer.Batch.handleSafely(messages: Nel<Message<Str
         .onLeft {
             SqsConnector.logger
                 .atError()
-                .addKeyValue("sqs.consumer", this::class)
+                .addKeyValue("sqs.consumer", this.javaClass.name)
                 .setCause(it)
                 .addKeyValue("sqs.message.ids", messages.map(Message<*>::id))
                 .log(

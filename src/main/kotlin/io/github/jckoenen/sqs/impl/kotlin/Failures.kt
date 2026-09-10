@@ -57,7 +57,7 @@ internal inline fun <reified E : SqsFailure> convertCommonExceptions(
         raise(failure)
     } else {
         throw IllegalStateException(
-            "UnknownFailure does not extend ${E::class} - this is a bug!",
+            "UnknownFailure does not extend ${E::class.qualifiedName} - this is a bug!",
             cause,
         )
     }
