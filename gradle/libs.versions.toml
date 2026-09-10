@@ -1,24 +1,24 @@
 [versions]
-kotlin = "2.4.0"
-versions = "0.54.0"
-spotless = "8.8.0"
+kotlin = "2.4.20"
+versions = "0.61.0"
+spotless = "8.10.2"
 maven-publish = "0.37.0"
 
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
 kotlinx-serialization = "1.11.0"
 
-aws-kotlin = "1.6.107"
+aws-kotlin = "1.8.49"
 arrow = "2.2.3"
 
-slf4j = "2.0.18"
-logback = "1.5.37"
+slf4j = "2.0.19"
+logback = "1.6.3"
 
-kotest = "6.2.1"
+kotest = "6.2.4"
 testcontainers = "2.0.5"
 
 [plugins]
-versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }
+versions = { id = "io.github.ben-manes.versions", version.ref = "versions" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
