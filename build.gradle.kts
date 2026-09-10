@@ -56,7 +56,6 @@ dependencies {
     testImplementation(libs.kotest.property)
     testImplementation(libs.kotest.extensions.testcontainers)
     testImplementation(libs.kotest.extensions.arrow)
-    testImplementation(libs.kotest.extensions.xml)
 
     testImplementation(platform(libs.testcontainers.bom))
     testImplementation(libs.testcontainers.java)
@@ -69,11 +68,6 @@ tasks {
         testLogging {
             events = setOf(TestLogEvent.FAILED, TestLogEvent.PASSED, TestLogEvent.SKIPPED)
         }
-        reports.junitXml.required = false
-        systemProperty(
-            "gradle.build.dir",
-            project.layout.buildDirectory.map { it.asFile.absolutePath }.get(),
-        )
     }
 
     dependencyUpdates {

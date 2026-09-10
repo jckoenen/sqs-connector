@@ -54,7 +54,6 @@ kotest-core = { module = "io.kotest:kotest-assertions-core" }
 kotest-property = { module = "io.kotest:kotest-property" }
 kotest-extensions-testcontainers = { module = "io.kotest:kotest-extensions-testcontainers" }
 kotest-extensions-arrow = { module = "io.kotest:kotest-assertions-arrow" }
-kotest-extensions-xml = { module = "io.kotest:kotest-extensions-junitxml" }
 
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-java = { module = "org.testcontainers:testcontainers" }

@@ -4,10 +4,11 @@ import arrow.core.identity
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.common.KotestInternal
 import io.kotest.core.names.TestNameBuilder
+import io.kotest.core.spec.TestDefinitionBuilder
 import io.kotest.core.spec.style.FreeSpec
-import io.kotest.core.spec.style.TestXMethod
 import io.kotest.core.spec.style.scopes.FreeSpecContainerScope
 import io.kotest.core.spec.style.scopes.FreeSpecTerminalScope
+import io.kotest.core.test.TestType
 import io.kotest.inspectors.forAll
 import io.kotest.matchers.collections.shouldBeSortedBy
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -37,10 +38,9 @@ class ConcurrentPartitionTest : FreeSpec({
             val name = TestNameBuilder.builder("[concurrency = $concurrency] $this")
                 .build()
             scope.registerTest(
-                name = name,
-                xmethod = TestXMethod.NONE,
-                config = null
-            ) { FreeSpecTerminalScope(this).test(concurrency) }
+                TestDefinitionBuilder.builder(name, TestType.Test)
+                    .build { FreeSpecTerminalScope(this).test(concurrency) }
+            )
         }
 
     }
