@@ -4,13 +4,12 @@ import io.kotest.assertions.nondeterministic.EventuallyConfiguration
 import io.kotest.assertions.nondeterministic.eventuallyConfig
 import io.kotest.core.config.AbstractProjectConfig
 import io.kotest.core.extensions.Extension
-import io.kotest.extensions.junitxml.JunitXmlReporter
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class ProjectKotestConfiguration : AbstractProjectConfig() {
-    override val extensions: List<Extension> = listOf(SqsContainerExtension, JunitXmlReporter())
+    override val extensions: List<Extension> = listOf(SqsContainerExtension)
 
     override val failOnEmptyTestSuite: Boolean = true
     override val coroutineDebugProbes: Boolean = true
