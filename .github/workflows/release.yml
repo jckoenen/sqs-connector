@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           # The ancestry check below cannot work on the default depth-1 clone.
           fetch-depth: 0
