@@ -14,7 +14,7 @@ arrow = "2.2.3"
 slf4j = "2.0.19"
 logback = "1.6.3"
 
-kotest = "6.2.4"
+kotest = "6.2.5"
 testcontainers = "2.0.5"
 
 [plugins]
