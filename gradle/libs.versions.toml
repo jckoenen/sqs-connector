@@ -11,7 +11,7 @@ kotlinx-serialization = "1.11.0"
 aws-kotlin = "1.9.4"
 arrow = "2.2.3"
 
-slf4j = "2.0.19"
+slf4j = "2.0.20"
 logback = "1.6.3"
 
 kotest = "6.2.5"
