@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.4.20"
 versions = "0.64.0"
-spotless = "8.10.2"
+spotless = "8.10.3"
 maven-publish = "0.37.0"
 
 kotlinx-coroutines = "1.11.0"
