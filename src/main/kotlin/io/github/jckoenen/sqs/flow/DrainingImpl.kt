@@ -17,19 +17,17 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 
-internal fun <T> Flow<T>.drainableImpl(): DrainableFlow<T> =
-    channelFlow {
-            val upstream = onEach(::send).launchIn(this)
-            val drain = currentCoroutineContext()[DrainControlElement]
+internal fun <T> Flow<T>.drainableImpl(): DrainableFlow<T> = channelFlow {
+    val upstream = onEach(::send).launchIn(this)
+    val drain = currentCoroutineContext()[DrainControlElement]
 
-            if (drain != null) {
-                drain.head.set(upstream)
-            } else {
-                LoggerFactory.getLogger(DrainableFlow::class.java)
-                    .warn("Drainable flow did not have a drain signal attached")
-            }
-        }
-        .let(::DrainableFlowImpl)
+    if (drain != null) {
+        drain.head.set(upstream)
+    } else {
+        LoggerFactory.getLogger(DrainableFlow::class.java).warn("Drainable flow did not have a drain signal attached")
+    }
+}
+    .let(::DrainableFlowImpl)
 
 @OptIn(InternalCoroutinesApi::class)
 @JvmInline

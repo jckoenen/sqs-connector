@@ -46,23 +46,25 @@ internal fun Flow<Nel<Message.Fifo<String>>>.applyConsumerToFifoQueue(
 private fun Flow<Nel<Message.Fifo<String>>>.consumeFifoIndividually(
     consumer: MessageConsumer.Individual,
     chunkWindow: Duration
-): Flow<Nel<MessageConsumer.Action>> =
-    flatMapConcat { it.asFlow() }
-        .concurrentPartition(
-            concurrency = consumer.configuration.parallelism,
-            partitionBy = { it.groupId },
-            processingFn = consumer::handleSafely)
-        .chunked(SQS_BATCH_SIZE, chunkWindow)
+): Flow<Nel<MessageConsumer.Action>> = flatMapConcat {
+    it.asFlow()
+}
+    .concurrentPartition(
+        concurrency = consumer.configuration.parallelism,
+        partitionBy = { it.groupId },
+        processingFn = consumer::handleSafely)
+    .chunked(SQS_BATCH_SIZE, chunkWindow)
 
 private fun Flow<Nel<Message.Fifo<String>>>.consumeFifoInBatch(
     consumer: MessageConsumer.Batch,
-): Flow<Nel<MessageConsumer.Action>> =
-    map { batch -> batch.groupNel { it.groupId } }
-        .flatMapConcat { it.asIterable().asFlow() }
-        .concurrentPartition(
-            concurrency = consumer.configuration.parallelism,
-            partitionBy = { (groupId, _) -> groupId },
-            processingFn = { (_, messages) -> consumer.handleSafely(messages) })
+): Flow<Nel<MessageConsumer.Action>> = map { batch ->
+    batch.groupNel { it.groupId }
+}
+    .flatMapConcat { it.asIterable().asFlow() }
+    .concurrentPartition(
+        concurrency = consumer.configuration.parallelism,
+        partitionBy = { (groupId, _) -> groupId },
+        processingFn = { (_, messages) -> consumer.handleSafely(messages) })
 
 private suspend fun MessageConsumer.Individual.handleSafely(message: Message<String>) =
     Either.catch { handle(message) }
