@@ -58,12 +58,11 @@ public fun SqsConnector.receive(
 public fun SqsConnector.receive(
     queueName: Queue.Name,
     visibilityTimeout: Duration = 30.seconds,
-): DrainableFlow<Nel<Message<String>>> =
-    flow {
-            val queue = resolveQueue(queueName)
-            receive(queue, visibilityTimeout).collect(::emit)
-        }
-        .drainable()
+): DrainableFlow<Nel<Message<String>>> = flow {
+    val queue = resolveQueue(queueName)
+    receive(queue, visibilityTimeout).collect(::emit)
+}
+    .drainable()
 
 @OptIn(PotentiallyUnsafeNonEmptyOperation::class)
 private fun <T : Message<*>> SqsConnector.receiveImpl(
