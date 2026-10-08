@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.4.20"
+kotlin = "2.4.21"
 versions = "0.64.0"
 spotless = "8.10.3"
 maven-publish = "0.37.0"
