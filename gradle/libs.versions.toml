@@ -9,7 +9,7 @@ kotlinx-datetime = "0.8.0"
 kotlinx-serialization = "1.11.0"
 
 aws-kotlin = "1.9.17"
-arrow = "2.2.3"
+arrow = "2.3.0"
 
 slf4j = "2.0.20"
 logback = "1.6.5"
